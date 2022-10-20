@@ -1,4 +1,9 @@
+pub mod binding_usage;
+pub mod block;
+
 use crate::{utils, val::Val};
+use binding_usage::BindingUsage;
+use block::Block;
 
 #[derive(Debug, PartialEq)]
 pub struct Number(pub i32);
@@ -31,7 +36,9 @@ impl Op {
 #[derive(Debug, PartialEq)]
 pub enum Expr {
     Number(Number),
-    Operation { lhs: Number, rhs: Number, op: Op }
+    Operation { lhs: Number, rhs: Number, op: Op },
+    BindingUsage(BindingUsage),
+    Block(Block)
 }
 
 impl Expr {
@@ -52,7 +59,13 @@ impl Expr {
     }
 
     pub fn parse(s: &str) -> Result<(&str, Self), String> {
-        Self::new_operations(s).or_else(|_| Self::new_number(s))
+        Self::new_operations(s)
+            .or_else(|_| Self::new_number(s))
+            .or_else(|_| {
+                BindingUsage::parse(s)
+                    .map(|(s, binding_usage)| (s, Self::BindingUsage(binding_usage)))
+                })
+            .or_else(|_| Block::parse(s).map(|(s, block)| (s, Self::Block(block))))
     }
 
     pub(crate) fn eval(&self) -> Val {
@@ -71,6 +84,7 @@ impl Expr {
 
                 Val::Number(result)
             }
+            _ => todo!()
         }
     }
 }
@@ -79,6 +93,7 @@ impl Expr {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::stmt::Stmt;
 
     #[test]
     fn parse_number() {
@@ -173,6 +188,32 @@ mod tests {
             }
             .eval(),
             Val::Number(10),
+        );
+    }
+
+    #[test]
+    fn parse_binding_usage() {
+        assert_eq!(
+            Expr::parse("bar"),
+            Ok((
+                "",
+                Expr::BindingUsage(BindingUsage {
+                    name: "bar".to_string()
+                })
+            ))
+        )
+    }
+
+    #[test]
+    fn parse_block() {
+        assert_eq!(
+            Expr::parse("{ 200 }"),
+            Ok((
+                "",
+                Expr::Block(Block {
+                    stmts: vec![Stmt::Expr(Expr::Number(Number(200)))],
+                }),
+            )),
         );
     }
 }
