@@ -12,7 +12,7 @@ pub(crate) fn extract_op(s: &str) -> (&str, &str) {
     (&s[1..], &s[0..1])
 }
 
-pub(crate) fn extract_ident(s: &str) -> (&str, &str) {
+pub(crate) fn extract_ident(s: &str) -> Result<(&str, &str), String> {
     let valid = s
         .chars()
         .peekable()
@@ -21,9 +21,9 @@ pub(crate) fn extract_ident(s: &str) -> (&str, &str) {
         .unwrap_or(false);
 
     if valid {
-        take_while(s, |c| c.is_ascii_alphanumeric())
+        Ok(take_while(s, |c| c.is_ascii_alphanumeric()))
     } else {
-        (s, "")
+        Err("expected identifier".to_string())
     }
 }
 
@@ -114,12 +114,12 @@ mod tests {
 
     #[test]
     fn test_extract_ident() {
-        assert_eq!(extract_ident("val char"), (" char", "val"));
+        assert_eq!(extract_ident("val char"), Ok((" char", "val")));
     }
 
     #[test]
     fn test_extract_ident_start_with_number() {
-        assert_eq!(extract_ident("123val char"), ("123val char", ""));
+        assert_eq!(extract_ident("123val char"), Err("expected identifier".to_string()));
     }
 
     #[test]

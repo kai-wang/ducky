@@ -12,7 +12,7 @@ impl BindingDef {
         let s = utils::tag("let", s)?;
         let (s, _) = utils::extract_whitespaces(s);
 
-        let (s, name) = utils::extract_ident(s);
+        let (s, name) = utils::extract_ident(s)?;
         let (s, _) = utils::extract_whitespaces(s);
 
         let s = utils::tag("=", s)?;
