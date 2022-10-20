@@ -29,8 +29,9 @@ impl BindingDef {
         ))
     }
 
-    pub(crate) fn eval(&self, env: &mut Env) {
-        env.store_bindings(self.name.clone(), self.val.eval());
+    pub(crate) fn eval(&self, env: &mut Env) -> Result<(), String> {
+        env.store_bindings(self.name.clone(), self.val.eval(env)?);
+        Ok(())
     }
 }
 

@@ -57,7 +57,7 @@ mod tests {
 
     #[test]
     fn eval_non_existent_binding_usage() {
-        let mut env = Env::default();
+        let env = Env::default();
 
         assert_eq!(
             BindingUsage {
