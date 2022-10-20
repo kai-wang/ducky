@@ -8,25 +8,25 @@ pub struct BindingDef {
 }
 
 impl BindingDef {
-    pub fn parse(s: &str) -> (&str, Self) {
-        let s = utils::tag("let", s);
+    pub fn parse(s: &str) -> Result<(&str, Self), String> {
+        let s = utils::tag("let", s)?;
         let (s, _) = utils::extract_whitespaces(s);
 
         let (s, name) = utils::extract_ident(s);
         let (s, _) = utils::extract_whitespaces(s);
 
-        let s = utils::tag("=", s);
+        let s = utils::tag("=", s)?;
         let (s, _) = utils::extract_whitespaces(s);
 
-        let (s, val) = Expr::parse(s);
+        let (s, val) = Expr::parse(s)?;
 
-        (
+        Ok((
             s,
             Self {
                 name: name.to_string(),
                 val,
             },
-        )
+        ))
     }
 
     pub(crate) fn eval(&self, env: &mut Env) {
@@ -43,17 +43,17 @@ mod tests {
     fn parse_binding_def() {
         assert_eq!(
             BindingDef::parse("let a = 1 + 2"),
-            (
+            Ok((
                 "",
                 BindingDef {
                     name: "a".to_string(),
-                    val: Expr {
+                    val: Expr::Operation {
                         lhs: Number(1),
                         rhs: Number(2),
                         op: Op::Add
                     }
                 }
-            )
+            ))
         )
     }
 }

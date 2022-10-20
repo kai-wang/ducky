@@ -1,6 +1,6 @@
 #[inline]
-pub(crate) fn extract_digits(s: &str) -> (&str, &str) {
-    take_while(s, |c| c.is_ascii_digit())
+pub(crate) fn extract_digits(s: &str) -> Result<(&str, &str), String> {
+    take_while1(s, |c| c.is_ascii_digit(), "expected digits".to_string())
 }
 
 pub(crate) fn extract_op(s: &str) -> (&str, &str) {
@@ -43,11 +43,22 @@ where F: Fn(char) -> bool
     (&s[match_end..], &s[..match_end])
 }
 
-pub(crate) fn tag<'a, 'b>(begin: &'a str, s: &'b str) -> &'b str {
-    if s.starts_with(begin) {
-        &s[begin.len()..]
+pub(crate) fn take_while1<F>(s: &str, f: F, msg: String) -> Result<(&str, &str), String>
+where
+F: Fn(char) -> bool 
+{
+    let (remaining, v) = take_while(s, f);
+    if v.is_empty() {
+        Err(msg)
     } else {
-        panic!("expected {}", begin);
+        Ok((remaining, v))
+    }
+}
+pub(crate) fn tag<'a, 'b>(begin: &'a str, s: &'b str) -> Result<&'b str, String> {
+    if s.starts_with(begin) {
+        Ok(&s[begin.len()..])
+    } else {
+        Err(format!("expected {}", begin))
     }
 }
 
@@ -57,18 +68,23 @@ mod tests {
 
     #[test]
     fn test_extract_one_digit() {
-        assert_eq!(extract_digits("1+2"), ("+2", "1"));
-        assert_eq!(extract_digits("100+200"), ("+200", "100"));
+        assert_eq!(extract_digits("1+2"), Ok(("+2", "1")));
+        assert_eq!(extract_digits("100-200"), Ok(("-200", "100")));
     }
 
     #[test]
     fn test_extract_anything_empty_input() {
-        assert_eq!(extract_digits(""), ("", ""));
+        assert_eq!(extract_digits(""), Err("expected digits".to_string()));
     }
 
     #[test]
     fn test_extract_digits_without_remaning() {
-        assert_eq!(extract_digits("100"), ("", "100"));
+        assert_eq!(extract_digits("100"), Ok(("", "100")));
+    }
+
+    #[test]
+    fn test_extract_invalid_digits() {
+        assert_eq!(extract_digits("abcd"), Err("expected digits".to_string()));
     }
 
     #[test]
@@ -108,6 +124,6 @@ mod tests {
 
     #[test]
     fn test_tag() {
-        assert_eq!(tag("let", "let a = 1"), " a = 1");
+        assert_eq!(tag("let", "let a = 1"), Ok(" a = 1"));
     }
 }
