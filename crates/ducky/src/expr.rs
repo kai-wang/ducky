@@ -1,11 +1,12 @@
 pub mod binding_usage;
 pub mod block;
 
-use crate::{utils, val::Val, env::Env};
-use binding_usage::BindingUsage;
-use block::Block;
+pub(crate) use binding_usage::BindingUsage;
+pub(crate) use block::Block;
 
-#[derive(Debug, PartialEq)]
+use crate::{utils, val::Val, env::Env};
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct Number(pub i32);
 
 impl Number {
@@ -15,7 +16,7 @@ impl Number {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Op {
     Add,
     Sub,
@@ -33,10 +34,10 @@ impl Op {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub enum Expr {
+#[derive(Debug, PartialEq, Clone)]
+pub(crate) enum Expr {
     Number(Number),
-    Operation { lhs: Number, rhs: Number, op: Op },
+    Operation { lhs: Box<Self>, rhs: Box<Self>, op: Op },
     BindingUsage(BindingUsage),
     Block(Block)
 }
@@ -47,39 +48,66 @@ impl Expr {
     }
 
     fn new_operations(s: &str) -> Result<(&str, Self), String> {
-        let (s, lhs) = Number::parse(s)?;
+        let (s, lhs) = Self::parse(s)?;
         let (s, _) = utils::extract_whitespaces(s);
 
         let (s, op) = Op::parse(s)?;
         let (s, _) = utils::extract_whitespaces(s);
 
-        let (s, rhs) = Number::parse(s)?;
+        let (s, rhs) = Self::parse(s)?;
 
-        Ok((s, Self::Operation { lhs, rhs, op }))
+        Ok((s, Self::Operation { lhs: Box::new(lhs), rhs: Box::new(rhs), op }))
     }
 
     pub fn parse(s: &str) -> Result<(&str, Self), String> {
-        Self::new_operations(s)
-            .or_else(|_| Self::new_number(s))
+        Self::new_operation(s).or_else(|_| Self::new_non_operation(s))
+    }
+
+    fn new_non_operation(s: &str) -> Result<(&str, Self), String> {
+        Self::new_number(s)
             .or_else(|_| {
                 BindingUsage::parse(s)
                     .map(|(s, binding_usage)| (s, Self::BindingUsage(binding_usage)))
-                })
+            })
             .or_else(|_| Block::parse(s).map(|(s, block)| (s, Self::Block(block))))
+    }
+
+    fn new_operation(s: &str) -> Result<(&str, Self), String> {
+        let (s, lhs) = Self::new_non_operation(s)?;
+        let (s, _) = utils::extract_whitespaces(s);
+
+        let (s, op) = Op::parse(s)?;
+        let (s, _) = utils::extract_whitespaces(s);
+
+        let (s, rhs) = Self::new_non_operation(s)?;
+
+        Ok((
+            s,
+            Self::Operation {
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
+                op,
+            },
+        ))
     }
 
     pub(crate) fn eval(&self, env: &Env) -> Result<Val, String> {
         match self {
             Self::Number(Number(n)) => Ok(Val::Number(*n)),
             Self::Operation { lhs, rhs, op } => {
-                let Number(lhs) = lhs;
-                let Number(rhs) = rhs;
+                let lhs = lhs.eval(env)?;
+                let rhs = rhs.eval(env)?;
+
+                let (lhs, rhs) = match (lhs,rhs) {
+                    (Val::Number(lhs), Val::Number(rhs)) => (lhs, rhs),
+                    _ => return Err("cannot evaluate operation whose left-hand side and right-hand side are not both numbers".to_string()),
+                };
 
                 let result = match op {
                     Op::Add => lhs + rhs,
                     Op::Sub => lhs - rhs,
                     Op::Mul => lhs * rhs,
-                    Op::Div => lhs / rhs
+                    Op::Div => lhs / rhs,
                 };
 
                 Ok(Val::Number(result))
@@ -133,8 +161,8 @@ mod tests {
             Ok((
                 "", 
                 Expr::Operation {
-                    lhs: Number(1),
-                    rhs: Number(2),
+                    lhs: Box::new(Expr::Number(Number(1))),
+                    rhs: Box::new(Expr::Number(Number(2))),
                     op: Op::Add
                 }
             ))
@@ -145,8 +173,8 @@ mod tests {
     fn eval_add() {
         assert_eq!(
             Expr::Operation {
-                lhs: Number(10),
-                rhs: Number(3),
+                lhs: Box::new(Expr::Number(Number(10))),
+                rhs: Box::new(Expr::Number(Number(3))),
                 op: Op::Add
             }.eval(&Env::default()),
             Ok(Val::Number(13))
@@ -157,8 +185,8 @@ mod tests {
     fn eval_sub() {
         assert_eq!(
             Expr::Operation {
-                lhs: Number(1),
-                rhs: Number(5),
+                lhs: Box::new(Expr::Number(Number(1))),
+                rhs: Box::new(Expr::Number(Number(5))),
                 op: Op::Sub,
             }
             .eval(&Env::default()),
@@ -170,8 +198,8 @@ mod tests {
     fn eval_mul() {
         assert_eq!(
             Expr::Operation {
-                lhs: Number(5),
-                rhs: Number(6),
+                lhs: Box::new(Expr::Number(Number(5))),
+                rhs: Box::new(Expr::Number(Number(6))),
                 op: Op::Mul,
             }
             .eval(&Env::default()),
@@ -183,8 +211,8 @@ mod tests {
     fn eval_div() {
         assert_eq!(
             Expr::Operation {
-                lhs: Number(200),
-                rhs: Number(20),
+                lhs: Box::new(Expr::Number(Number(200))),
+                rhs: Box::new(Expr::Number(Number(20))),
                 op: Op::Div,
             }
             .eval(&Env::default()),
@@ -240,5 +268,18 @@ mod tests {
             .eval(&Env::default()),
             Ok(Val::Number(10))
         )
+    }
+
+    #[test]
+    fn eval_non_number_operation() {
+        assert_eq!(
+            Expr::Operation {
+                lhs: Box::new(Expr::Number(Number(10))),
+                rhs: Box::new(Expr::Block(Block { stmts: Vec::new() })),
+                op: Op::Add,
+            }
+            .eval(&Env::default()),
+            Err("cannot evaluate operation whose left-hand side and right-hand side are not both numbers".to_string()),
+        );
     }
 }

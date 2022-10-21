@@ -1,8 +1,9 @@
-pub mod expr;
-pub mod binding_def;
-pub mod val;
-pub mod env;
-pub mod stmt;
+mod expr;
+mod binding_def;
+mod val;
+mod env;
+mod stmt;
+mod func_def;
 
 mod utils;
 

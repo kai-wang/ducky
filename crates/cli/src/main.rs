@@ -16,14 +16,9 @@ fn main() -> io::Result<()> {
     
             stdin.read_line(&mut input)?;
             match run(input.trim(), &mut env) {
-                Ok(Some(val)) => {
-                    writeln!(stdout, "{}", val)?;
-                }
+                Ok(Some(val)) => writeln!(stdout, "{}", val)?,
                 Ok(None) => {},
-                Err(msg) => {
-                    writeln!(stderr, "{}", msg)?;
-                    stderr.flush()?;
-                }
+                Err(msg) => writeln!(stderr, "{}", msg)?,
             }
             input.clear();
         }

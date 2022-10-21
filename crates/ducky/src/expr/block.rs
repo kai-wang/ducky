@@ -1,24 +1,15 @@
 use crate::{stmt::Stmt, utils, env::Env, val::Val, binding_def};
 
-#[derive(Debug, PartialEq)]
-pub struct Block {
-    pub stmts: Vec<Stmt>
+#[derive(Debug, PartialEq, Clone)]
+pub(crate) struct Block {
+    pub(crate) stmts: Vec<Stmt>
 }
 
 impl Block {
     pub fn parse(s: &str) -> Result<(&str, Self), String> {
         let s = utils::tag("{", s)?;
         let (s, _) = utils::extract_whitespaces(s);
-
-        let mut s = s;
-        let mut stmts = Vec::new();
-
-        while let Ok((new_s, stmt)) = Stmt::parse(s) {
-            s = new_s;
-            stmts.push(stmt);
-            let (new_s, _) = utils::extract_whitespaces(s);
-            s = new_s;
-        }
+        let (s, stmts) = utils::sequence(Stmt::parse, s)?;
 
         let (s, _) = utils::extract_whitespaces(s);
         let s = utils::tag("}", s)?;
@@ -176,8 +167,8 @@ mod tests {
                     Stmt::Expr(Expr::Number(Number(100))),
                     Stmt::Expr(Expr::Number(Number(30))),
                     Stmt::Expr(Expr::Operation {
-                        lhs: Number(10),
-                        rhs: Number(7),
+                        lhs: Box::new(Expr::Number(Number(10))),
+                        rhs: Box::new(Expr::Number(Number(7))),
                         op: Op::Sub,
                     }),
                 ],

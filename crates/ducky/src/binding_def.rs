@@ -1,8 +1,8 @@
 use crate::{expr::Expr, utils};
 use crate::env::Env;
 
-#[derive(Debug, PartialEq)]
-pub struct BindingDef {
+#[derive(Debug, PartialEq, Clone)]
+pub(crate) struct BindingDef {
     pub name: String,
     pub val: Expr
 }
@@ -49,8 +49,8 @@ mod tests {
                 BindingDef {
                     name: "a".to_string(),
                     val: Expr::Operation {
-                        lhs: Number(1),
-                        rhs: Number(2),
+                        lhs: Box::new(Expr::Number(Number(1))),
+                        rhs: Box::new(Expr::Number(Number(2))),
                         op: Op::Add
                     }
                 }
