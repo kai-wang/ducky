@@ -109,7 +109,7 @@ Root@0..3
     }
 
     #[test]
-    fn parse_binding_usage() {
+    fn parse_variable_ref() {
         check(
             "counter",
             expect![[r#"
