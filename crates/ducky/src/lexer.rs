@@ -5,8 +5,8 @@ use num_derive::{FromPrimitive, ToPrimitive};
 #[derive(Debug, Copy, Clone, PartialEq, Logos, FromPrimitive, ToPrimitive)]
 pub(crate) enum SyntaxKind {
     Root,
-
-    BinOp,
+    BinaryExpr,
+    PrefixExpr,
 
     #[regex(" +")]
     Whitepsace,
@@ -17,7 +17,7 @@ pub(crate) enum SyntaxKind {
     #[token("let")]
     LetKw,
 
-    #[regex("[A-Za-z][A-Za-z0-9]+")]
+    #[regex("[A-Za-z][A-Za-z0-9]*")]
     Ident,
 
     #[regex("[0-9]+")]
@@ -43,6 +43,12 @@ pub(crate) enum SyntaxKind {
 
     #[token("}")]
     RBrace,
+
+    #[token("(")]
+    LParen,
+
+    #[token(")")]
+    RParen,
 
     #[error]
     Error,
@@ -109,5 +115,15 @@ mod tests {
         check("=", SyntaxKind::Equals);
         check("{", SyntaxKind::LBrace);
         check("}", SyntaxKind::RBrace);
+    }
+
+    #[test]
+    fn lex_left_parenthesis() {
+        check("(", SyntaxKind::LParen);
+    }
+
+    #[test]
+    fn lex_right_parenthesis() {
+        check(")", SyntaxKind::RParen);
     }
 }
