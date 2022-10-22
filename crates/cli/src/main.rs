@@ -1,40 +1,21 @@
-use std::{io::{self, Write}, fmt::format};
+use ducky::parser::Parser;
+use std::io::{self, Write};
 
 fn main() -> io::Result<()> {
+    let stdin = io::stdin();
+    let mut stdout = io::stdout();
+
+    let mut input = String::new();
 
     loop {
-        let stdin = io::stdin();
-        let mut stdout = io::stdout();
-        let mut stderr = io::stderr();
-    
-        let mut input = String::new();
-        let mut env = ducky::Env::default();
-    
-        loop {
-            write!(stdout, "🦆 ")?;
-            stdout.flush()?;
-    
-            stdin.read_line(&mut input)?;
-            match run(input.trim(), &mut env) {
-                Ok(Some(val)) => writeln!(stdout, "{}", val)?,
-                Ok(None) => {},
-                Err(msg) => writeln!(stderr, "{}", msg)?,
-            }
-            input.clear();
-        }
-    }
+        write!(stdout, "→ ")?;
+        stdout.flush()?;
 
-    fn run(input: &str, env: &mut ducky::Env) -> Result<Option<ducky::Val>, String> {
-        let parse = ducky::parse(input).map_err(|msg| format!("Parse error: {}", msg))?;
+        stdin.read_line(&mut input)?;
 
-        let evaluated = parse
-                .eval(env)
-                .map_err(|msg| format!("Evaluation error: {}", msg))?;
+        let parse = Parser::new(&input).parse();
+        println!("{}", parse.debug_tree());
 
-        if evaluated == ducky::Val::Unit {
-            Ok(None)
-        } else {
-            Ok(Some(evaluated))
-        }
+        input.clear();
     }
 }
