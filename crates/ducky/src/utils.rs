@@ -38,6 +38,17 @@ pub(crate) fn extract_whitespaces1(s: &str) -> Result<(&str, &str), String> {
     take_while1(s, |c| WHITESPACE.contains(&c), "expected whitespace".to_string())
 }
 
+pub(crate) fn take_while2(accept: impl Fn(char) -> bool, s: &str) -> (&str, &str) {
+    let extracted_end = s
+        .char_indices()
+        .find_map(|(idx, c)| if accept(c) { None } else { Some(idx) })
+        .unwrap_or_else(|| s.len());
+
+    let extracted = &s[..extracted_end];
+    let remainder = &s[extracted_end..];
+    (remainder, extracted)
+}
+
 pub(crate) fn take_while<F>(s: &str, f: F) -> (&str, &str)
 where F: Fn(char) -> bool
 {
@@ -70,6 +81,7 @@ pub(crate) fn tag<'a, 'b>(begin: &'a str, s: &'b str) -> Result<&'b str, String>
 
 pub(crate) fn sequence<T>(
     parser: impl Fn(&str) -> Result<(&str, T), String>,
+    separator_parser: impl Fn(&str) -> (&str, &str),
     mut s: &str,
 ) -> Result<(&str, Vec<T>), String> {
     let mut items = Vec::new();
@@ -77,11 +89,26 @@ pub(crate) fn sequence<T>(
     while let Ok((new_s, item)) = parser(s) {
         s = new_s;
         items.push(item);
-        let(new_s, _) = extract_whitespaces(s);
+
+        let (new_s, _) = separator_parser(s);
         s = new_s;
     }
 
     Ok((s, items))
+}
+
+pub(crate) fn sequence1<T>(
+    parser: impl Fn(&str) -> Result<(&str, T), String>,
+    separator_parser: impl Fn(&str) -> (&str, &str),
+    s: &str,
+) -> Result<(&str, Vec<T>), String> {
+    let (s, sequence) = sequence(parser, separator_parser, s)?;
+
+    if sequence.is_empty() {
+        Err("expected a sequence with more than one item".to_string())
+    } else {
+        Ok((s, sequence))
+    }
 }
 
 #[cfg(test)]

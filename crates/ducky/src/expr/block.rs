@@ -9,7 +9,7 @@ impl Block {
     pub fn parse(s: &str) -> Result<(&str, Self), String> {
         let s = utils::tag("{", s)?;
         let (s, _) = utils::extract_whitespaces(s);
-        let (s, stmts) = utils::sequence(Stmt::parse, s)?;
+        let (s, stmts) = utils::sequence(Stmt::parse, utils::extract_whitespaces, s)?;
 
         let (s, _) = utils::extract_whitespaces(s);
         let s = utils::tag("}", s)?;
