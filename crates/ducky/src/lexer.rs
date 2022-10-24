@@ -8,7 +8,7 @@ pub(crate) enum SyntaxKind {
     BinaryExpr,
     PrefixExpr,
 
-    #[regex(" +")]
+    #[regex("[ \n]+")]
     Whitespace,
 
     #[token("fn")]
@@ -50,8 +50,17 @@ pub(crate) enum SyntaxKind {
     #[token(")")]
     RParen,
 
+    #[regex("#.*")]
+    Comment,
+
     #[error]
     Error,
+}
+
+impl SyntaxKind {
+    pub(crate) fn is_trivia(self) -> bool {
+        matches!(self, Self::Whitespace | Self::Comment)
+    }
 }
 
 pub(crate) struct Lexer<'a> {
@@ -132,5 +141,15 @@ mod tests {
     #[test]
     fn lex_right_parenthesis() {
         check(")", SyntaxKind::RParen);
+    }
+
+    #[test]
+    fn lex_comment() {
+        check("# foo", SyntaxKind::Comment);
+    }
+
+    #[test]
+    fn lex_spaces_and_newlines() {
+        check("  \n ", SyntaxKind::Whitespace);
     }
 }
