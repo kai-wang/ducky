@@ -83,12 +83,12 @@ impl PrefixOp {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::syntax::SyntaxNode;
+    use crate::{syntax::SyntaxNode, parser::parse};
     use expect_test::{expect, Expect};
 
 
     fn check(input: &str, expected_tree: Expect) {
-        let parse = Parser::new(input).parse();
+        let parse = parse(input);
         // trim the last newline character;
         expected_tree.assert_eq(&parse.debug_tree());
     }
@@ -235,4 +235,70 @@ Root@0..7
     RParen@6..7 ")""#]],
         );
     }
+
+    #[test]
+    fn parse_whitespace() {
+        check(
+            "   ",
+            expect![[r#"
+Root@0..3
+  Whitespace@0..3 "   ""#]],
+        );
+    }
+
+    #[test]
+    fn parse_number_preceded_by_whitespace() {
+        check(
+            "   9876",
+            expect![[r#"
+Root@0..7
+  Whitespace@0..3 "   "
+  Number@3..7 "9876""#]],
+        );
+    }
+
+    #[test]
+    fn parse_number_followed_by_whitespace() {
+        check(
+            "999   ",
+            expect![[r#"
+Root@0..6
+  Number@0..3 "999"
+  Whitespace@3..6 "   ""#]],
+        );
+    }
+
+    #[test]
+    fn parse_number_surrounded_by_whitespace() {
+        check(
+            " 123     ",
+            expect![[r#"
+Root@0..9
+  Whitespace@0..1 " "
+  Number@1..4 "123"
+  Whitespace@4..9 "     ""#]],
+        );
+    }
+
+    #[test]
+    fn parse_binary_expression_with_whitespace() {
+        check(
+            " 1 +   2* 3 ",
+            expect![[r#"
+Root@0..12
+  Whitespace@0..1 " "
+  BinaryExpr@1..12
+    Number@1..2 "1"
+    Whitespace@2..3 " "
+    Plus@3..4 "+"
+    Whitespace@4..7 "   "
+    BinaryExpr@7..12
+      Number@7..8 "2"
+      Star@8..9 "*"
+      Whitespace@9..10 " "
+      Number@10..11 "3"
+      Whitespace@11..12 " ""#]],
+        );
+    }
+
 }

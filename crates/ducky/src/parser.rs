@@ -1,60 +1,77 @@
 mod expr;
+mod event;
+mod sink;
 
-use crate::lexer::{Lexer, SyntaxKind};
-use rowan::{Checkpoint, GreenNodeBuilder, Language, GreenNode};
-use crate::syntax::{DuckLang, SyntaxNode};
-use std::iter::Peekable;
+use crate::lexer::{Lexeme, Lexer, SyntaxKind};
+use rowan::{GreenNode};
+use crate::syntax::{SyntaxNode};
 use expr::expr;
+use event::Event;
+use sink::Sink;
 
-pub struct Parser<'a> {
-    lexer: Peekable<Lexer<'a>>,
-    builder: GreenNodeBuilder<'static>
+struct Parser<'l, 'input> {
+    lexemes: &'l [Lexeme<'input>],
+    cursor: usize,
+    events: Vec<Event>
 }
 
-impl<'a> Parser<'a> {
-    pub fn new(input: &'a str) -> Self {
+impl<'l, 'input> Parser<'l, 'input> {
+    fn new(lexemes: &'l [Lexeme<'input>]) -> Self {
         Self {
-            lexer: Lexer::new(input).peekable(),
-            builder: GreenNodeBuilder::new(),
+            lexemes,
+            cursor: 0,
+            events: Vec::new(),
         }
     }
 
-    pub fn parse(mut self) -> Parse {
+    pub fn parse(mut self) -> Vec<Event> {
         self.start_node(SyntaxKind::Root);
-
         expr(&mut self);
-
         self.finish_node();
 
-        Parse {
-            green_node: self.builder.finish()
-        }
+        self.events
     }
 
     fn peek(&mut self) -> Option<SyntaxKind> {
-        self.lexer.peek().map(|(kind, _)| *kind)
+        self.eat_whitespace();
+        self.lexemes.get(self.cursor).map(|Lexeme {kind, ..}| *kind)
+    }
+
+    fn eat_whitespace(&mut self) {
+        while self.peek_raw() == Some(SyntaxKind::Whitespace) {
+            self.cursor += 1;
+        }
+    }
+
+    fn peek_raw(&self) -> Option<SyntaxKind> {
+        self.lexemes.get(self.cursor).map(|Lexeme { kind, ..}| *kind)
     }
 
     fn bump(&mut self) {
-        let (kind, text) = self.lexer.next().unwrap();
-
-        self.builder.token(DuckLang::kind_to_raw(kind), text.into());
+        self.eat_whitespace();
+        let Lexeme { kind, text } = self.lexemes[self.cursor];
+        self.cursor += 1;
+        
+        self.events.push(Event::AddToken { 
+            kind, 
+            text: text.into() 
+        });
     }
 
-    fn checkpoint(&self) -> Checkpoint {
-        self.builder.checkpoint()
+    fn checkpoint(&self) -> usize {
+        self.events.len()
     }
 
-    fn start_node_at(&mut self, checkpoint: Checkpoint, kind: SyntaxKind) {
-        self.builder.start_node_at(checkpoint, DuckLang::kind_to_raw(kind));
+    fn start_node_at(&mut self, checkpoint: usize, kind: SyntaxKind) {
+        self.events.push(Event::StartNodeAt { kind, checkpoint });
     }
 
     fn start_node(&mut self, kind: SyntaxKind) {
-        self.builder.start_node(DuckLang::kind_to_raw(kind));
+        self.events.push(Event::StartNode { kind });
     }
 
     fn finish_node(&mut self) {
-        self.builder.finish_node();
+        self.events.push(Event::FinishNode);
     }
 }
 
@@ -72,3 +89,13 @@ impl Parse {
     }
 }
 
+pub fn parse(input: &str) -> Parse {
+    let lexemes: Vec<_> = Lexer::new(input).collect();
+    let parser = Parser::new(&lexemes);
+    let events = parser.parse();
+    let sink = Sink::new(&lexemes, events);
+
+    Parse {
+        green_node: sink.finish()
+    }
+}
