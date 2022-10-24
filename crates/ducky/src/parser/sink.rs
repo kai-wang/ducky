@@ -1,7 +1,7 @@
 use super::event::Event;
-use crate::lexer::{Lexeme, SyntaxKind, self};
+use crate::lexer::{Lexeme, SyntaxKind};
 use crate::syntax::DuckLang;
-use rowan::{GreenNode, GreenNodeBuilder, Language, SmolStr};
+use rowan::{GreenNode, GreenNodeBuilder, Language};
 
 pub(super) struct Sink<'l, 'input> {
     builder: GreenNodeBuilder<'static>,
@@ -36,7 +36,7 @@ impl<'l, 'input> Sink<'l, 'input> {
                     self.builder.start_node(DuckLang::kind_to_raw(kind))
                 }
                 Event::StartNodeAt {.. } => unreachable!(),
-                Event::AddToken { kind, text } => self.token(kind, text),
+                Event::AddToken { kind, text } => self.token(kind, text.as_str()),
                 Event::FinishNode => self.builder.finish_node(),
             }
 
@@ -52,11 +52,11 @@ impl<'l, 'input> Sink<'l, 'input> {
                 break;
             }
 
-            self.token(lexeme.kind, lexeme.text.into());
+            self.token(lexeme.kind, lexeme.text);
         }
     }
 
-    fn token(&mut self, kind: SyntaxKind, text: SmolStr) {
+    fn token(&mut self, kind: SyntaxKind, text: &str) {
         self.builder.token(DuckLang::kind_to_raw(kind), text);
         self.cursor += 1;
     }
